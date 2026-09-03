@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle, XCircle, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { BUILT_IN_PROXIES, isBuiltInProxy } from '../types/clash'
 
 interface ValidationIssue {
   level: 'error' | 'warning'
@@ -21,7 +22,7 @@ function useValidationResults(): ValidationIssue[] {
     // All proxy group names
     const allGroupNames = new Set(proxyGroups.map((g) => g.name))
     // All valid targets (nodes + groups + built-ins)
-    const allValidTargets = new Set([...allNodeNames, ...allGroupNames, 'DIRECT', 'REJECT'])
+    const allValidTargets = new Set([...allNodeNames, ...allGroupNames, ...BUILT_IN_PROXIES])
 
     // ── 1. Orphan nodes in proxy groups ──────────────────────────────────────
     const orphanNodes = new Set<string>()
@@ -29,7 +30,7 @@ function useValidationResults(): ValidationIssue[] {
       if (g.autoAllNodes) continue
       for (const p of g.proxies) {
         // A referenced name that is neither a node name nor a group name → orphan
-        if (!allNodeNames.has(p) && !allGroupNames.has(p)) {
+        if (!allNodeNames.has(p) && !allGroupNames.has(p) && !isBuiltInProxy(p)) {
           orphanNodes.add(p)
         }
       }
