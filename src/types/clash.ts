@@ -12,13 +12,24 @@ export interface Proxy {
   [key: string]: unknown
 }
 
+/** Mihomo outbound policies that can be referenced directly by proxy groups. */
+export const BUILT_IN_PROXIES = ['DIRECT', 'REJECT'] as const
+export type BuiltInProxy = (typeof BUILT_IN_PROXIES)[number]
+
+/** A serialized proxy-group member: proxy name, group name, or built-in policy. */
+export type ProxyGroupMember = string
+
+export function isBuiltInProxy(value: string): value is BuiltInProxy {
+  return (BUILT_IN_PROXIES as readonly string[]).includes(value)
+}
+
 export type ProxyGroupType = 'select' | 'url-test' | 'fallback' | 'load-balance' | 'relay'
 
 export interface ProxyGroup {
   id: string
   name: string
   type: ProxyGroupType
-  proxies: string[]
+  proxies: ProxyGroupMember[]
   /** proxy-providers to include (use field in Mihomo) */
   use?: string[]
   timeout?: number
@@ -98,7 +109,7 @@ export interface Rule {
 export interface ImportedProxyGroup {
   name: string
   type: string
-  proxies: string[]
+  proxies: ProxyGroupMember[]
   use?: string[]
   timeout?: number
   url?: string
@@ -679,7 +690,7 @@ export interface ClashConfig {
   'proxy-groups'?: Array<{
     name: string
     type: string
-    proxies: string[]
+    proxies: ProxyGroupMember[]
     use?: string[]
     timeout?: number
     url?: string
@@ -826,5 +837,3 @@ export const CUSTOM_RULE_PROVIDERS: RuleProvider[] = [
     isPreset: true,
   },
 ]
-
-export const BUILT_IN_PROXIES: string[] = []

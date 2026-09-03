@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { SourceConfig, ProxyGroup, RuleProvider, Rule, Proxy, ClashConfig, ClashGlobalSettings, DnsConfig, DnsFallbackFilter, ProxyProvider } from '../types/clash'
+import type { SourceConfig, ProxyGroup, ProxyGroupMember, RuleProvider, Rule, Proxy, ClashConfig, ClashGlobalSettings, DnsConfig, DnsFallbackFilter, ProxyProvider } from '../types/clash'
 import { PRESET_RULE_PROVIDERS, BLACKMATRIX7_RULE_PROVIDERS, CUSTOM_RULE_PROVIDERS, DEFAULT_GLOBAL_SETTINGS } from '../types/clash'
 import { getInitialLanguage, type Language } from '../i18n/language'
 
@@ -34,8 +34,8 @@ interface AppState {
   addProxyGroup: (group: Omit<ProxyGroup, 'id'>) => string
   updateProxyGroup: (id: string, updates: Partial<ProxyGroup>) => void
   removeProxyGroup: (id: string) => void
-  addProxyToGroup: (groupId: string, proxyName: string) => void
-  removeProxyFromGroup: (groupId: string, proxyName: string) => void
+  addProxyToGroup: (groupId: string, proxyName: ProxyGroupMember) => void
+  removeProxyFromGroup: (groupId: string, proxyName: ProxyGroupMember) => void
   reorderProxiesInGroup: (groupId: string, oldIndex: number, newIndex: number) => void
   reorderProxyGroups: (oldIndex: number, newIndex: number) => void
 

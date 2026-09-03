@@ -1,5 +1,5 @@
 import yaml from 'js-yaml'
-import type { ClashConfig, Proxy, RuleProvider, ClashGlobalSettings, DnsConfig, ImportedProxyGroup, SubscriptionInfo, ProxyProvider } from '../types/clash'
+import type { ClashConfig, Proxy, ProxyGroupMember, RuleProvider, ClashGlobalSettings, DnsConfig, ImportedProxyGroup, SubscriptionInfo, ProxyProvider } from '../types/clash'
 import { DEFAULT_GLOBAL_SETTINGS } from '../types/clash'
 
 export function parseSubscriptionInfo(header: string): SubscriptionInfo | undefined {
@@ -112,7 +112,7 @@ export function generateClashConfig(
   proxyGroups: Array<{
     name: string
     type: string
-    proxies: string[]
+    proxies: ProxyGroupMember[]
     use?: string[]
     timeout?: number
     url?: string

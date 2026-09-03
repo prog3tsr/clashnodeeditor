@@ -34,8 +34,8 @@ import {
   Globe,
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
-import type { ProxyGroup, ProxyGroupType } from '../types/clash'
-import { BUILT_IN_PROXIES } from '../types/clash'
+import type { ProxyGroup, ProxyGroupMember, ProxyGroupType } from '../types/clash'
+import { BUILT_IN_PROXIES, isBuiltInProxy } from '../types/clash'
 import EmojiPicker from './EmojiPicker'
 import { resolveToIp, fetchIpInfoBatch, type IpData } from '../utils/ipUtils'
 
@@ -56,13 +56,15 @@ export default function ProxyGroupEditor() {
   // Outer drag state — for reordering group cards
   const [outerActiveId, setOuterActiveId] = useState<string | null>(null)
 
-  // Grouped sections for the proxy picker — no built-in presets
-  const proxySections = [
-    { key: 'proxyGroups', label: t('app.tabs.groups'), items: proxyGroups.map((g) => g.name) },
-    ...(manualProxies.length > 0 ? [{ key: 'manual', label: t('app.tabs.nodes'), items: manualProxies.map((p) => p.name) }] : []),
+  // Grouped sections for the proxy picker. Built-ins remain member references,
+  // separate from real proxies and proxy groups.
+  const proxySections: ProxySection[] = [
+    { key: 'builtIn', kind: 'builtIn' as const, label: t('group.builtInProxies'), items: [...BUILT_IN_PROXIES] },
+    { key: 'proxyGroups', kind: 'group' as const, label: t('app.tabs.groups'), items: proxyGroups.map((g) => g.name) },
+    ...(manualProxies.length > 0 ? [{ key: 'manual', kind: 'node' as const, label: t('app.tabs.nodes'), items: manualProxies.map((p) => p.name) }] : []),
     ...sources
       .filter((s) => s.proxies.length > 0)
-      .map((s) => ({ key: s.id, label: s.name, items: s.proxies.map((p) => p.name) })),
+      .map((s) => ({ key: s.id, kind: 'node' as const, label: s.name, items: s.proxies.map((p) => p.name) })),
   ].filter((s) => s.items.length > 0)
 
   const toggleExpand = (id: string) => {
@@ -150,7 +152,7 @@ export default function ProxyGroupEditor() {
   }, [])
 
   const handleDragEnd = useCallback(
-    (event: DragEndEvent, groupId: string, proxies: string[]) => {
+    (event: DragEndEvent, groupId: string, proxies: ProxyGroupMember[]) => {
       const { active, over } = event
       setActiveId(null)
       setOverId(null)
@@ -288,7 +290,8 @@ export default function ProxyGroupEditor() {
 }
 
 interface ProxySection {
-  key?: string
+  key: string
+  kind: 'builtIn' | 'group' | 'node'
   label: string
   items: string[]
 }
@@ -305,8 +308,8 @@ interface GroupCardProps {
   onEdit: () => void
   onRemove: () => void
   onUpdate: (updates: Partial<ProxyGroup>) => void
-  onAddProxy: (name: string) => void
-  onRemoveProxy: (name: string) => void
+  onAddProxy: (name: ProxyGroupMember) => void
+  onRemoveProxy: (name: ProxyGroupMember) => void
   onReorder: (oldIndex: number, newIndex: number) => void
   sensors: ReturnType<typeof useSensors>
   activeId: string | null
@@ -540,7 +543,7 @@ function GroupCard({
   const allFilteredItems = filteredSections.flatMap((s) => s.items)
   const allFilteredSelected = allFilteredItems.length > 0 && allFilteredItems.every((n) => pickerSelected.has(n))
   // Source-only sections (no proxy group names) for autoAllNodes display
-  const sourceOnlySections = proxySections.filter((s) => s.key !== 'proxyGroups')
+  const sourceOnlySections = proxySections.filter((s) => s.kind === 'node')
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/80 bg-white dark:bg-gray-800/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -823,7 +826,7 @@ function GroupCard({
                   <p className="text-center py-4 text-xs text-gray-400">{t('group.noImportedNodes')}</p>
                 )}
                 {group.autoAllNodes && sourceOnlySections.map((section) => (
-                  <div key={section.label}>
+                  <div key={section.key}>
                     <div className="sticky top-0 px-4 py-1.5 bg-gray-50 dark:bg-gray-800/90 border-b border-gray-100 dark:border-gray-700/50 flex items-center gap-1.5">
                       <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">{section.label}</span>
                       <span className="ml-1 text-[10px] text-gray-300 dark:text-gray-600 font-mono">{section.items.length}</span>
@@ -965,8 +968,12 @@ function GroupCard({
                   {filteredSections.map((section) => {
                     const sectionAllChecked = section.items.every((n) => pickerSelected.has(n))
                     return (
-                      <div key={section.label}>
-                        <div className="sticky top-0 flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/90 border-b border-gray-100 dark:border-gray-700/50">
+                      <div key={section.key}>
+                        <div className={`sticky top-0 flex items-center gap-2 px-3 py-1.5 border-b ${
+                          section.kind === 'builtIn'
+                            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50'
+                            : 'bg-gray-50 dark:bg-gray-800/90 border-gray-100 dark:border-gray-700/50'
+                        }`}>
                           <button
                             onClick={() => toggleSectionAll(section.items)}
                             className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 uppercase tracking-widest transition-colors"
@@ -995,6 +1002,15 @@ function GroupCard({
                                 ? <CheckSquare size={12} className="shrink-0 text-indigo-500" />
                                 : <Square size={12} className="shrink-0 text-gray-300 dark:text-gray-600" />}
                               <span className="flex-1 truncate">{name}</span>
+                              {section.kind === 'builtIn' && (
+                                <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-semibold tracking-wide ${
+                                  name === 'DIRECT'
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                                }`}>
+                                  {t('group.builtInBadge')}
+                                </span>
+                              )}
                               {/* IP 信息徽章 */}
                               {ipd?.status === 'success' && (
                                 <span className="flex items-center gap-1 shrink-0">
@@ -1044,7 +1060,9 @@ function SortableProxyItem({
   selected: boolean
   onToggleSelect: () => void
 }) {
+  const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const builtIn = isBuiltInProxy(id)
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -1069,7 +1087,22 @@ function SortableProxyItem({
       >
         <GripVertical size={13} />
       </button>
-      <span className="flex-1 text-xs text-gray-700 dark:text-gray-300 truncate">{id}</span>
+      <span className={`flex-1 text-xs truncate ${
+        builtIn
+          ? id === 'DIRECT'
+            ? 'font-semibold text-emerald-700 dark:text-emerald-300'
+            : 'font-semibold text-rose-700 dark:text-rose-300'
+          : 'text-gray-700 dark:text-gray-300'
+      }`}>{id}</span>
+      {builtIn && (
+        <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-semibold tracking-wide ${
+          id === 'DIRECT'
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+            : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+        }`}>
+          {t('group.builtInBadge')}
+        </span>
+      )}
       {selected
         ? <CheckSquare size={13} className="shrink-0 text-red-500" />
         : <Square size={13} className="shrink-0 text-gray-300 dark:text-gray-600" />}
